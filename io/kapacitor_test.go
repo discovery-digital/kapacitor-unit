@@ -21,7 +21,7 @@ func TestKapacitorConstructor(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	h := "http://test:9093"
+	h := "http://model:9093"
 	k := NewKapacitor(h)
 
 	gock.New(h).
@@ -42,8 +42,27 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func TestKapacitor_GetLog(t *testing.T) {
+	h := "http://model:9093"
+	k := NewKapacitor(h)
+
+	url := "/kapacitor/v1preview/logs"
+	gock.New(h).
+		Get(url).
+		MatchParam("task", "model").
+		Reply(200).
+		JSON(map[string]string{"something": "here"})
+
+	_, err := k.GetLog("model")
+
+	if err != nil {
+		t.Error("GetLog: Error when trying to get a log value from kapacitor", err)
+	}
+
+}
+
 func TestDelete(t *testing.T) {
-	h := "http://test:9093"
+	h := "http://model:9093"
 	k := NewKapacitor(h)
 	tid := "task_id"
 
@@ -58,7 +77,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestStatusOnAlert2(t *testing.T) {
-	h := "http://test:9093"
+	h := "http://model:9093"
 	k := NewKapacitor(h)
 	tid := "task_id"
 	b := []byte(`{"stats": { "node-stats": { "alert2": { "crits_triggered": 0, "warns_triggered": 1, "oks_triggered": 0 } } }}`)
@@ -80,7 +99,7 @@ func TestStatusOnAlert2(t *testing.T) {
 }
 
 func TestStatusOnOtherAlert(t *testing.T) {
-	h := "http://test:9093"
+	h := "http://model:9093"
 	k := NewKapacitor(h)
 	tid := "task_id"
 	b := []byte(`{"stats": { "node-stats": { "alert4": { "crits_triggered": 1, "warns_triggered": 1, "oks_triggered": 0 } } }}`)
@@ -102,7 +121,7 @@ func TestStatusOnOtherAlert(t *testing.T) {
 }
 
 func TestStatusNoAlertFound(t *testing.T) {
-	h := "http://test:9093"
+	h := "http://model:9093"
 	k := NewKapacitor(h)
 	tid := "task_id"
 	b := []byte(`{"stats": { "node-stats": {} }}`)
@@ -123,7 +142,7 @@ func TestStatusNoAlertFound(t *testing.T) {
 }
 
 func TestStatusMoreThanOneAlert(t *testing.T) {
-	h := "http://test:9093"
+	h := "http://model:9093"
 	k := NewKapacitor(h)
 	tid := "task_id"
 	b := []byte(`{"stats": { "node-stats":  { "alert4": { "crits_triggered": 1, "warns_triggered": 1, "oks_triggered": 0 }, "alert2": { "crits_triggered": 0, "warns_triggered": 1, "oks_triggered": 0 }}}}`)
@@ -199,4 +218,3 @@ var rain = batch
 	}
 
 }
-

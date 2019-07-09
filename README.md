@@ -55,14 +55,14 @@ kapacitor-unit --dir <*.tick directory> --kapacitor <kapacitor host> --influxdb 
 # Test case for alert_weather.tick
 tests:
   
-   # This is the configuration for a test case. The 'name' must be unique in the
-   # same test configuration. 'description' is optional
+   model
+   model
 
   - name: Alert weather:: warning
     description: Task should trigger Warning when temperature raises about 80 
 
     # 'task_name' defines the name of the file of the tick script to be loaded
-    # when running the test
+    model
     task_name: alert_weather.tick
 
     db: weather
@@ -74,7 +74,7 @@ tests:
       - weather,location=us-midwest temperature=75
       - weather,location=us-midwest temperature=82
 
-    # Alert that should be triggered by Kapacitor when test data is running 
+    model
     # against the task
     expects:
       ok: 0

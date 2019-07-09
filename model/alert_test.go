@@ -1,4 +1,4 @@
-package test
+package model
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 func TestValidateRecAndData(t *testing.T) {
 	r := Result{}
 	d := []string{"data1", "data2"}
-	tst := Test{}
+	tst := AlertTest{}
 
 	tst.Data = d
 	tst.RecId = "e24db07d-1646-4bb3-a445-828f5049bea0"
@@ -16,13 +16,13 @@ func TestValidateRecAndData(t *testing.T) {
 	tst.Validate()
 
 	if tst.Result.Error != true {
-		t.Error("Test initialized with recording_id and test must be invalid")
+		t.Error("AlertTest initialized with recording_id and model must be invalid")
 	}
 }
 
 func TestValidateRecOk(t *testing.T) {
 	r := Result{}
-	tst := Test{}
+	tst := AlertTest{}
 
 	tst.RecId = "e24db07d-1646-4bb3-a445-828f5049bea0"
 	tst.Result = r
@@ -30,13 +30,13 @@ func TestValidateRecOk(t *testing.T) {
 	tst.Validate()
 
 	if tst.Result.Error != false {
-		t.Error("Test initialized only with recording_id must be valid")
+		t.Error("AlertTest initialized only with recording_id must be valid")
 	}
 }
 
 func TestValidateDataOk(t *testing.T) {
 	r := Result{}
-	tst := Test{}
+	tst := AlertTest{}
 	d := []string{"data1", "data2"}
 
 	tst.Data = d
@@ -45,12 +45,12 @@ func TestValidateDataOk(t *testing.T) {
 	tst.Validate()
 
 	if tst.Result.Error != false {
-		t.Error("Test initialized only with data must be valid")
+		t.Error("AlertTest initialized only with data must be valid")
 	}
 }
 
 func TestValidateRecNotOk(t *testing.T) {
-	tst := NewTest()
+	tst := AlertTest{}
 
 	tst.Data = []string{"data1"}
 	tst.Result = Result{}
@@ -59,6 +59,6 @@ func TestValidateRecNotOk(t *testing.T) {
 	tst.Validate()
 
 	if tst.Result.Error != true {
-		t.Error("Test configuration with recording id and protocol line data is invalid")
+		t.Error("AlertTest configuration with recording id and protocol line data is invalid")
 	}
 }

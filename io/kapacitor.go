@@ -1,14 +1,16 @@
 package io
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/golang/glog"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"regexp"
+	"strings"
 )
 
 type Status struct {
@@ -37,7 +39,7 @@ func (k Kapacitor) Load(f map[string]interface{}) error {
 		if ok != true {
 			return errors.New("Task Load: script is not of type string")
 		}
-		f["script"] = batchReplaceEvery(str)
+		f["script"] = k.BatchReplaceEvery(str)
 
 		glog.Info("DEBUG:: batch script after replace: ", f["script"])
 	}
@@ -46,9 +48,13 @@ func (k Kapacitor) Load(f map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	
+
+	return k.PostTask(j)
+}
+
+func (k Kapacitor) PostTask(payload []byte) error {
 	u := k.Host + tasks
-	res, err := k.Client.Post(u, "application/json", bytes.NewBuffer(j))
+	res, err := k.Client.Post(u, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		return err
 	}
@@ -59,6 +65,7 @@ func (k Kapacitor) Load(f map[string]interface{}) error {
 	}
 	return nil
 }
+
 
 // Deletes a task
 func (k Kapacitor) Delete(id string) error {
@@ -75,18 +82,46 @@ func (k Kapacitor) Delete(id string) error {
 	return nil
 }
 
-// Adds test data to kapacitor
+// Adds model data to kapacitor
 func (k Kapacitor) Data(data []string, db string, rp string) error {
 	u := k.Host + kapacitor_write + "db=" + db + "&rp=" + rp
 	for _, d := range data {
-		_, err := k.Client.Post(u, "application/x-www-form-urlencoded",
+		resp, err := k.Client.Post(u, "application/x-www-form-urlencoded",
 			bytes.NewBuffer([]byte(d)))
+
+		var buffer []byte
+		resp.Body.Read(buffer)
+		fmt.Println(buffer)
+
 		if err != nil {
 			return err
 		}
 		glog.Info("DEBUG:: Kapacitor added data: ", d)
 	}
 	return nil
+}
+
+func (k Kapacitor) ListenLog(id string) {
+	url := k.Host + logs + id
+
+	response, err := k.Client.Get(url)
+
+	if err != nil {
+		return //nil, err
+	}
+
+	logs := make([][]byte, 0)
+
+	reader := bufio.NewReader(response.Body)
+	for {
+		line, _ := reader.ReadBytes('\n')
+
+		fmt.Println(string(line))
+
+		logs = append(logs, line)
+	}
+
+	return //logs
 }
 
 // Gets task alert status
@@ -124,8 +159,8 @@ func (k Kapacitor) Status(id string) (map[string]int, error) {
 	return f, nil
 }
 
-// Replaces '.every(*)' for the batch request to be performed every 1s to speed up the test
-func batchReplaceEvery(s string) string {
+// Replaces '.every(*)' for the batch request to be performed every 1s to speed up the model
+func (k Kapacitor) BatchReplaceEvery(s string) string {
 	re := regexp.MustCompile("every\\((.*?)\\)")
 	return re.ReplaceAllString(s, "every(1s)")
 }

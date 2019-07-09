@@ -1,18 +1,21 @@
-// Responsible for setting up, run, gather results and tear down a test. It
-// exposes the method test.Run(), which saves the test results in the Test
+// Responsible for setting up, run, gather results and tear down a model. It
+// exposes the method model.Run(), which saves the model results in the AlertTest
 // struct or fails.
-package test
+package model
+
 
 import (
 	"fmt"
 	"github.com/golang/glog"
 	"github.com/gpestana/kapacitor-unit/io"
-	"github.com/gpestana/kapacitor-unit/task"
-	"time"
 	"regexp"
+	"time"
 )
 
-type Test struct {
+
+
+// AlertTest is a model that asserts that the expected alerts are triggered
+type AlertTest struct {
 	Name     string
 	TaskName string `yaml:"task_name,omitempty"`
 	Data     []string
@@ -22,18 +25,28 @@ type Test struct {
 	Db       string
 	Rp       string
 	Type     string
-	Task     task.Task
+	Task     Task
 }
 
-func NewTest() Test {
-	return Test{}
+func (t *AlertTest) Init(c TestConf) error {
+	t.Name = c.Name
+	t.Db = c.Db
+	t.Rp = c.Rp
+	t.TaskName = c.TaskName
+	t.Expects = c.Expects
+	t.Data = c.Data
+	t.Type = c.Type
+	return nil
 }
 
-// Method exposed to start the test. It sets up the test, adds the test data,
+// Method exposed to start the model. It sets up the model, adds the model data,
 // fetches the triggered alerts and saves it. It also removes all artifacts
-// (database, retention policy) created for the test.
-func (t *Test) Run(k io.Kapacitor, i io.Influxdb) error {
+// (database, retention policy) created for the model.
+func (t *AlertTest) Run(k io.Kapacitor, i io.Influxdb) error {
+
 	err := t.setup(k, i)
+	defer t.teardown(k, i) //defer teardown so it gets run incase of early termination
+
 	if err != nil {
 		return err
 	}
@@ -41,19 +54,34 @@ func (t *Test) Run(k io.Kapacitor, i io.Influxdb) error {
 	if err != nil {
 		return err
 	}
+
 	t.wait()
+
 	err = t.results(k)
 	if err != nil {
 		return err
 	}
-	err = t.teardown(k, i)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
-func (t Test) String() string {
+func (t AlertTest) GetName() string {
+	return t.TaskName
+}
+
+func (t AlertTest) GetType() string {
+	return t.Type
+}
+
+func (t *AlertTest) SetTask(tsk Task) {
+	t.Task = tsk
+}
+
+func (t AlertTest) Passed() bool {
+	return t.Result.Passed
+}
+
+func (t AlertTest) String() string {
 	if t.Result.Error == true {
 		return fmt.Sprintf("TEST %v (%v) ERROR: %v", t.Name, t.TaskName, t.Result.String())
 	} else {
@@ -61,8 +89,8 @@ func (t Test) String() string {
 	}
 }
 
-// Adds test data
-func (t *Test) addData(k io.Kapacitor, i io.Influxdb) error {
+// Adds model data
+func (t *AlertTest) addData(k io.Kapacitor, i io.Influxdb) error {
 	switch t.Type {
 	case "stream":
 		// adds data to kapacitor
@@ -80,20 +108,20 @@ func (t *Test) addData(k io.Kapacitor, i io.Influxdb) error {
 	return nil
 }
 
-// Validates if individual test configuration is correct
-func (t *Test) Validate() error {
-	glog.Info("DEBUG:: validate test: ", t.Name)
+// Validates if individual model configuration is correct
+func (t *AlertTest) Validate() error {
+	glog.Info("DEBUG:: validate model: ", t.Name)
 	if len(t.Data) > 0 && t.RecId != "" {
-		m := "Configuration file cannot define a recording_id and line protocol data input for the same test case"
+		m := "Configuration file cannot define a recording_id and line protocol data input for the same model case"
 		r := Result{0, 0, 0, m, false, true}
 		t.Result = r
 	}
 	return nil
 }
 
-// Creates all necessary artifacts in database to run the test
-func (t *Test) setup(k io.Kapacitor, i io.Influxdb) error {
-	glog.Info("DEBUG:: setup test: ", t.Name)
+// Creates all necessary artifacts in database to run the model
+func (t *AlertTest) setup(k io.Kapacitor, i io.Influxdb) error {
+	glog.Info("DEBUG:: setup model: ", t.Name)
 	switch t.Type {
 	case "batch":
 		err := i.Setup(t.Db, t.Rp)
@@ -102,7 +130,7 @@ func (t *Test) setup(k io.Kapacitor, i io.Influxdb) error {
 		}
 	}
 
-	// Loads test task to kapacitor
+	// Loads model task to kapacitor
 	f := map[string]interface{}{
 		"id":     t.TaskName,
 		"type":   t.Type,
@@ -122,7 +150,7 @@ func (t *Test) setup(k io.Kapacitor, i io.Influxdb) error {
 	return nil
 }
 
-func (t *Test) wait() {
+func (t *AlertTest) wait() {
 	switch t.Type {
 	case "batch":
 		// If batch script, waits 3 seconds for batch queries being processed
@@ -131,26 +159,25 @@ func (t *Test) wait() {
 	}
 }
 
-// Deletes data, database and retention policies created to run the test
-func (t *Test) teardown(k io.Kapacitor, i io.Influxdb) error {
-	glog.Info("DEBUG:: teardown test: ", t.Name)
+// Deletes data, database and retention policies created to run the model
+func (t *AlertTest) teardown(k io.Kapacitor, i io.Influxdb) {
+	glog.Info("DEBUG:: teardown model: ", t.Name)
 	switch t.Type {
 	case "batch":
 		err := i.CleanUp(t.Db)
 		if err != nil {
-			return err
+			glog.Error("Error performing teardown in cleanup. error: ", err)
 		}
 	}
 	err := k.Delete(t.TaskName)
 	if err != nil {
-		return err
+		glog.Error("Error performing teardown in delete error: ", err)
 	}
-	return nil
 }
 
-// Fetches status of kapacitor task, stores it and compares expected test result
-// and actual result test
-func (t *Test) results(k io.Kapacitor) error {
+// Fetches status of kapacitor task, stores it and compares expected model result
+// and actual result model
+func (t *AlertTest) results(k io.Kapacitor) error {
 	s, err := k.Status(t.Task.Name)
 	if err != nil {
 		return err

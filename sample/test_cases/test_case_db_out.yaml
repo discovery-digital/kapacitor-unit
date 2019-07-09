@@ -1,0 +1,25 @@
+tests:
+
+
+- name: "Db out"
+  task_name: db_out.tick
+
+  seed_db: test
+  seed_rp: default
+
+  test_type: influxdbout
+
+  type: batch
+
+  seed_data:
+  - count,odd=1 even=2
+  - count,odd=3 even=4
+
+
+  assert_db : test_out
+  assert_rp : default
+
+  assert_data:
+  - arbitrary_tag_val, arbitrary_key_val=1, arbitrary_tag_val=1
+  - arbitrary_tag_val, arbitrary_key_val=1, arbitrary_tag_val=1
+

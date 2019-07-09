@@ -24,8 +24,8 @@ func TestConfigValidYAML(t *testing.T) {
 	c := `
 tests:
  - name: test1
-   task_name: "test 1"
-   db: test
+   task_name: "model 1"
+   db: model
    rp: default
    expects: 
      ok: 0
@@ -36,8 +36,8 @@ tests:
     - data 2
 
  - name: test2
-   task_name: "test 2"
-   db: test
+   task_name: "model 2"
+   db: model
    rp: default
    data: 
     - example of data
@@ -53,10 +53,10 @@ tests:
 		t.Error(err)
 	}
 
-	if tests[0].Name != "test1" {
+	if tests[0].GetName() != "test1" {
 		t.Error("Test name not parsed as expected")
 	}
-	if tests[0].Data[1] != "data 2" {
+	if tests[0].GetName() != "data 2" {
 		t.Error("Data not parsed as expected")
 	}
 	//if cmap.Tests[1].Expects != "critical" {
@@ -91,7 +91,7 @@ func TestInitTests(t *testing.T) {
 tests:
  - name: "alert 2"
    task_name: alert_2.tick
-   db: test
+   db: model
    rp: default
    expects: 
      ok: 0
@@ -103,7 +103,7 @@ tests:
 
  - name: "alert 2 - another"
    task_name: "alert_2.tick"
-   db: test
+   db: model
    rp: default
    data: 
     - example of data
@@ -125,7 +125,7 @@ tests:
 		t.Error(err)
 	}
 
-	if tests[0].Task.Name != "alert_2.tick" {
-		t.Error(tests[0].Task.Name)
+	if tests[0].GetName() != "alert_2.tick" {
+		t.Error(tests[0].GetName())
 	}
 }

@@ -2,8 +2,12 @@ package io
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"github.com/golang/glog"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 // Influxdb service configurations
@@ -19,14 +23,19 @@ func NewInfluxdb(host string) Influxdb {
 	}
 }
 
-// Adds test data to influxdb
+// Adds model data to influxdb
 func (influxdb Influxdb) Data(data []string, db string, rp string) error {
 	url := influxdb.Host + influxdb_write + "db=" + db + "&rp=" + rp
 	for _, d := range data {
-		_, err := influxdb.Client.Post(url, "application/x-www-form-urlencoded",
+		resp, err := influxdb.Client.Post(url, "application/x-www-form-urlencoded",
 			bytes.NewBuffer([]byte(d)))
+
 		if err != nil {
 			return err
+		}
+
+		if resp.StatusCode >= 400 {
+			return errors.New(resp.Status)
 		}
 		glog.Info("DEBUG:: Influxdb added ["+d+"] to "+url)
 	}
@@ -48,6 +57,25 @@ func (influxdb Influxdb) Setup(db string, rp string) error {
 		return err
 	}
 	return nil
+}
+
+func(influxdb Influxdb)Query(db string, query string) (map[string] interface{}, error ){
+	baseUrl := influxdb.Host + "/query?db=" + db + "&q=" + url.QueryEscape(query)
+
+	resp, err := influxdb.Client.Get(baseUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	j := make(map[string]interface{})
+	err = json.Unmarshal(body, &j)
+
+	return j, err
 }
 
 func (influxdb Influxdb) CleanUp(db string) error {

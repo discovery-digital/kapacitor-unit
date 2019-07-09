@@ -1,0 +1,18 @@
+var data = batch
+	| query('''SELECT sum(even) as e, sum(odd) as o FROM "test"."default"."count"''')
+      .period(5m)
+      .every(1s)
+      .groupBy(time(10s), 'e', 'o')
+
+
+data
+    | influxDBOut()
+        //.create()
+        .database('test_out')
+        .retentionPolicy('default')
+        .measurement('sum')
+        .flushInterval(1s)
+        .precision('s')
+
+
+

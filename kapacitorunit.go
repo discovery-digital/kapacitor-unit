@@ -3,137 +3,52 @@ package main
 import (
 	"fmt"
 	"github.com/fatih/color"
-	"github.com/gpestana/kapacitor-unit/cli"
 	"github.com/gpestana/kapacitor-unit/io"
-	"github.com/gpestana/kapacitor-unit/task"
-	"github.com/gpestana/kapacitor-unit/test"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"github.com/gpestana/kapacitor-unit/model"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
-type TestCollection []test.Test
 
 func main() {
 	fmt.Println(renderWelcome())
 
-	f := cli.Load()
+	f := model.LoadAppConfig()
 	kapacitor := io.NewKapacitor(f.KapacitorHost)
 	influxdb := io.NewInfluxdb(f.InfluxdbHost)
 
-	tests, err := testConfig(f.TestsPath)
+	tests, err := model.LoadTestsFromFileSystem(*f)
 	if err != nil {
-		log.Fatal("Error loading test configurations: ", err)
-	}
-	err = initTests(tests, f.ScriptsDir)
-	if err != nil {
-		log.Fatal("Init Tests failed: ", err)
+		log.Fatal("Error loading model configurations: ", err)
 	}
 
 	// Validates, runs tests in series and print results
 	for _, t := range tests {
 		if err := t.Validate(); err != nil {
-			log.Println(err)
+			log.Printf("Error validating model: Error: %v Test: %+v  ", err, t)
 			continue
 		}
-		// Runs the test only if there was no errors during constructor and validation
-		if t.Result.Error == true {
-			log.Println(t.Result.Message)
-			continue
-		}
-		// Runs test
+
+		// Runs model
 		err = t.Run(kapacitor, influxdb)
 		if err != nil {
-			log.Println("Error running test: ", t, " Error: ", err)
+			log.Println("Error running model: ", t, " Error: ", err)
 			continue
 		}
-		//Prints test output
+		//Prints model output
 		setColor(t)
 		log.Println(t)
 		color.Unset()
 	}
 }
 
-// Sets output color based on test results
-func setColor(t test.Test) {
-	if t.Result.Passed == true {
+// Sets output color based on model results
+func setColor(t model.TestInterface) {
+	if t.Passed() == true {
 		color.Set(color.FgGreen)
 	} else {
 		color.Set(color.FgRed)
 	}
-}
-
-func loadYamlFile(fileName string) (TestCollection, error) {
-
-	type conf struct {
-		Tests TestCollection
-	}
-
-	b, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		return nil, err
-	}
-
-	c := conf{}
-
-	err = yaml.Unmarshal(b, &c)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return c.Tests, err
-
-}
-
-//Opens and parses test configuration file into a structure
-func testConfig(fileName string) (TestCollection, error) {
-
-	stat, err := os.Stat(fileName)
-	if err != nil {
-		return nil, err
-	}
-
-	files := make([]string, 0)
-
-	if stat.IsDir() {
-		filepath.Walk(fileName, func(path string, info os.FileInfo, err error) error {
-			if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
-				files = append(files, path)
-			}
-			return nil
-		})
-
-	} else {
-		files = append(files, fileName)
-	}
-
-	tests := make(TestCollection, 0)
-
-	for _, file := range files {
-		fileTests, err := loadYamlFile(file)
-		if err != nil {
-			return nil, err
-		}
-		tests = append(tests, fileTests...)
-	}
-
-	return tests, nil
-}
-
-//Populates each of Test in Configuration struct with an initialized Task
-func initTests(c TestCollection, p string) error {
-	for i, t := range c {
-		tk, err := task.New(t.TaskName, p)
-		if err != nil {
-			return err
-		}
-		c[i].Task = *tk
-	}
-	return nil
 }
 
 func renderWelcome() string {
@@ -146,6 +61,6 @@ func renderWelcome() string {
 	logo[5] = " |_|\\_\\__,_| .__/ \\__,_|\\___|_|\\__\\___/|_|          \\__,_|_| |_|_|\\__| "
 	logo[6] = "           | |                                                                 "
 	logo[7] = "           |_|                                                        		      "
-	logo[8] = "The unit test framework for TICK scripts (v0.8)\n"
+	logo[8] = "The unit model framework for TICK scripts (v0.8)\n"
 	return strings.Join(logo, "\n")
 }
